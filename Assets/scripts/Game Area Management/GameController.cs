@@ -4,6 +4,7 @@ using System.Collections;
 public class GameController : MonoBehaviour {
 
 	public GameObject crate;
+	public RangeAnimatorScript rangeAnimatorScript;
 	public GameObject[] turrets;
 	public int[] cost; //should be the same length as turrets
 	public GameObject enemy;
@@ -14,13 +15,26 @@ public class GameController : MonoBehaviour {
 	public GUIText resourceText;
 	public GUIText toastText;
 	public TextMesh[] userInterface;
+	bool gameOver = false;
 
-	//game boundaries
-	private float xMin = -0.5f, zMax = 0.5f, zMin = -15.5f, xMax = 16.5f;
+	Wave[] waves = {
+			new Wave(1, 1, 100, 10),
+			new Wave(0.7f, 1, 100, 10),
+			new Wave(1, 1.3f, 100, 13),
+			new Wave(1, 2, 50, 7),
+			new Wave(3.5f, 3.3f, 75, 3),
+			new Wave(0.7f, 1.1f, 250, 3),
+			new Wave(0.3f, 5, 10, 100),
+			new Wave(3, 0.2f, 2000, 10)
+	};
+	int place;
+	void Awake(){
+		place = 0;
+	}
 
 	void Start(){
+		rangeAnimatorScript = GameObject.FindGameObjectWithTag("Range").GetComponent<RangeAnimatorScript>();
 		toastText.text = "";
-		StartCoroutine(spawnWaves(50, 1f, 1.5f, 100f));
 		AddToResources(0);
 		for(int i = 0; i < userInterface.Length; i++){
 			userInterface[i].text = "";
@@ -28,44 +42,30 @@ public class GameController : MonoBehaviour {
 		userInterface[0].transform.position = Vector3.one * 1000;
 	}
 	
-	IEnumerator spawnWaves(int number, float wait, float speed, float health){
+	void SpawnNextWave(){
+		Wave w = waves[place];
+		StartCoroutine(SpawnWaves(w.number, w.wait, w.speed, w.health));
+		place++;
+	}
+
+	IEnumerator SpawnWaves(int number, float wait, float speed, float health){
 		for(int i = 0; i < number; i++){
 			spawnEnemy(speed, health);
 			yield return new WaitForSeconds(wait);
 		}
 	}
 
-	private Vector3 camPosn, camMove, bottomLeft, topRight, mp;//mp created based on user's click and is used to determine where the menu should be and where to send new turrets
-	float m;
+	private Vector3 mp;//mp created based on user's click and is used to determine where the menu should be and where to send new turrets
 	private Ray zero, one;
-	private bool check = true;
 	RaycastHit hit;
 	GameObject selectedTurret;
 	void Update (){
-		camMove = new Vector3(Input.GetAxisRaw("Horizontal")*m, -Input.GetAxisRaw("Mouse ScrollWheel")*zoomSpeed, Input.GetAxisRaw("Vertical")*m) * Time.deltaTime;
-		if(camMove.magnitude != 0 || check){//the following computation is only necesarry if the camera will move
-			camPosn = Camera.main.transform.position + camMove;
-			//camPosn = new Vector3(camPosn.x, camPosn.y, camPosn.z);//prevents deep copying
-			//makes sure that the camera is within certain bounds such that the skybox is not visible
-			zero = Camera.main.camera.ViewportPointToRay(new Vector3(0, 0, 0));
-			one = Camera.main.ViewportPointToRay(new Vector3(1, 1, 0));
-			//the boundaries of the camera at a given y, as two vector3s
-			bottomLeft = Camera.main.transform.position.y*zero.direction/zero.direction.y + new Vector3(xMin, 0, zMin);
-			topRight = Camera.main.transform.position.y*one.direction/one.direction.y + new Vector3(xMax, 0, zMax);
-			Camera.main.transform.position = new Vector3(
-				Mathf.Clamp(camPosn.x, bottomLeft.x, topRight.x),
-				Mathf.Clamp(camPosn.y, 2, 13.8f),
-				Mathf.Clamp(camPosn.z, bottomLeft.z, topRight.z)
-			);
-			m = camPosn.y * camSpeed;
-			check = !check;
-		}
 		//if there is a click, send a turret to that location
 		if(Input.GetMouseButtonDown(0)){
 			Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-			if(Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << 5)){
+			if(Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << 5)){//UI layer
 				UseMenu();
-			}else if(Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << 8)){
+			}else if(Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << 8)){ //default layer
 				DrawMenu();
 			}else{
 				foreach(TextMesh tm in userInterface) tm.text = "";
@@ -73,11 +73,23 @@ public class GameController : MonoBehaviour {
 			}
 		}
 		//makes sure there are enemies to shoot at
-		if(GameObject.FindGameObjectWithTag("Enemy") == null) StartCoroutine(spawnWaves(10, 1, 1, 100));
+		if(GameObject.FindGameObjectWithTag("Enemy") == null && !gameOver){
+			if(place == waves.Length){
+				gameOver = true;
+				toastText.text = "You Win!";
+			}else{
+				SpawnNextWave();
+			}
+		}
 	}
 
+	public void EndGame(){
+		gameOver = true;
+		toastText.text = "Game Ogre!";
+	}
 
 	private void UseMenu(){
+		bool erase = true;
 		int type = (int) char.GetNumericValue(hit.collider.gameObject.GetComponent<TextMesh>().text.ToCharArray()[0]);
 		if(userInterface[0].text == "Build Turret"){ //if we're building a turret
 			type--;
@@ -94,10 +106,17 @@ public class GameController : MonoBehaviour {
 				Recycle(selectedTurret);
 			}else if(type > 0){
 				StartCoroutine(Toast(selectedTurret.GetComponent<TurretAI>().Upgrade(type)));
+				if(toastText.text == ""){
+					DrawMenu();
+					erase = false;
+				}
 			}
 		}
-		foreach(TextMesh tm in userInterface) tm.text = "";
-		userInterface[0].transform.position = Vector3.one * 1000;
+		if(erase){
+			foreach(TextMesh tm in userInterface) tm.text = "";
+			userInterface[0].transform.position = Vector3.one * 1000;
+			rangeAnimatorScript.Disable();
+		}
 	}
 
 	private void DrawMenu(){
@@ -108,16 +127,22 @@ public class GameController : MonoBehaviour {
 			for(int i = 1; i < userInterface.Length; i++){
 				userInterface[i].text = turrets.Length >= i ? i + ": " + turrets[i-1].ToString().Substring(0, turrets[i-1].ToString().IndexOf("(")) : "";
 			}
-		}else if(hit.collider.tag == "Turret"){
+			rangeAnimatorScript.Disable();
+			return;
+		}
+		if(hit.collider.tag == "Turret"){
+			selectedTurret = hit.collider.gameObject;
 			userInterface[0].transform.position = mp + new Vector3(0.5f, 0.15f, 0.5f);
-			int[] ups = hit.collider.GetComponent<TurretAI>().upgradeCosts;
 			userInterface[0].text = "Upgrade " + hit.collider.ToString().Substring(0, hit.collider.ToString().IndexOf("("));
+		}
+		if(selectedTurret != null){
+			rangeAnimatorScript.SetPositionAndReset(selectedTurret.transform.position, selectedTurret.GetComponent<TurretAI>().att[0]);
+			int[] ups = selectedTurret.GetComponent<TurretAI>().upgradeCosts;
 			userInterface[1].text = "1: range (" + ups[0] + ")";
 			userInterface[2].text = "2: damage (" + ups[1] + ")";
 			userInterface[3].text = "3: rotation speed (" + ups[2] + ")";
 			userInterface[4].text = "4: fire rate (" + ups[3] + ")";
 			userInterface[5].text = "5: recycle";
-			selectedTurret = hit.collider.gameObject;
 			/**range, damage, rotationSpeed, wait*/
 		}
 	}

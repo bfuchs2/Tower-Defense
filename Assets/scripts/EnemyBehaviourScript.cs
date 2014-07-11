@@ -41,8 +41,8 @@ public class EnemyBehaviourScript : MonoBehaviour {
 			target++;
 		}
 		if(target == tgts.Length){
+			gameController.EndGame();
 			Destroy(this.gameObject);
-			//TODO make the player lose the game if this happpens
 		}else{
 			setDir();
 		}

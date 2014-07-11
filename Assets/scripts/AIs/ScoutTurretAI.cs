@@ -24,7 +24,9 @@ public class ScoutTurretAI : TurretAI{
 		return (target.transform.position - gun.position + (Vector3.up * 0.4f)).normalized;
 	}
 
-	override protected void CheckAttributes(){}	
+	override protected void CheckAttributes(){
+		anim.speed = 0.5f/att[3];
+	}
 	
 	private bool whichCan = true;
 	override protected void fire(Vector3 dir){
