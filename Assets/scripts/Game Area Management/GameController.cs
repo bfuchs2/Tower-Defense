@@ -16,16 +16,17 @@ public class GameController : MonoBehaviour {
 	public GUIText toastText;
 	public TextMesh[] userInterface;
 	bool gameOver = false;
+	public GUIText switchback;
 
 	Wave[] waves = {
-			new Wave(1, 1, 100, 10),
-			new Wave(0.7f, 1, 100, 10),
-			new Wave(1, 1.3f, 100, 13),
-			new Wave(1, 2, 50, 7),
-			new Wave(3.5f, 3.3f, 75, 3),
-			new Wave(0.7f, 1.1f, 250, 3),
-			new Wave(0.3f, 5, 10, 100),
-			new Wave(3, 0.2f, 2000, 10)
+			new Wave(1, 1, 100, 13),
+			new Wave(0.7f, 1, 100, 13),
+			new Wave(1, 1.3f, 100, 16),
+			new Wave(1, 2, 50, 10),
+			new Wave(3.5f, 3.3f, 75, 6),
+			new Wave(0.7f, 1.1f, 250, 6),
+			new Wave(0.3f, 5, 10, 103),
+			new Wave(3, 0.2f, 2000, 13)
 	};
 	int place;
 	void Awake(){
@@ -35,6 +36,7 @@ public class GameController : MonoBehaviour {
 	void Start(){
 		rangeAnimatorScript = GameObject.FindGameObjectWithTag("Range").GetComponent<RangeAnimatorScript>();
 		toastText.text = "";
+		switchback.text = "";
 		AddToResources(0);
 		for(int i = 0; i < userInterface.Length; i++){
 			userInterface[i].text = "";
@@ -59,17 +61,26 @@ public class GameController : MonoBehaviour {
 	private Ray zero, one;
 	RaycastHit hit;
 	GameObject selectedTurret;
+	bool cameraInTurretView;
 	void Update (){
 		//if there is a click, send a turret to that location
-		if(Input.GetMouseButtonDown(0)){
-			Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-			if(Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << 5)){//UI layer
-				UseMenu();
-			}else if(Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << 8)){ //default layer
-				DrawMenu();
-			}else{
-				foreach(TextMesh tm in userInterface) tm.text = "";
-				userInterface[0].transform.position = Vector3.one * 1000; //to prevent the user from clicking invisible menus
+		if(cameraInTurretView){
+			if(Input.GetKey(KeyCode.S)){
+				Camera.main.GetComponent<CameraManager>().SwitchToTurretView(null);
+				cameraInTurretView = false;
+				switchback.text = "";
+			}
+		}else{
+			if(Input.GetMouseButtonDown(0)){
+				Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+				if(Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << 5)){//UI layer
+					UseMenu();
+				}else if(Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << 8)){ //default layer
+					DrawMenu();
+				}else{
+					foreach(TextMesh tm in userInterface) tm.text = "";
+					userInterface[0].transform.position = Vector3.one * 1000; //to prevent the user from clicking invisible menus
+				}
 			}
 		}
 		//makes sure there are enemies to shoot at
@@ -104,6 +115,11 @@ public class GameController : MonoBehaviour {
 		}else{//we must be upgrading a turret
 			if(type == 5){
 				Recycle(selectedTurret);
+			}else if(type == 6){
+				Camera.main.GetComponent<CameraManager>().SwitchToTurretView(selectedTurret);
+				cameraInTurretView = true;
+				rangeAnimatorScript.SetPositionAndReset(selectedTurret.transform.position, selectedTurret.GetComponent<TurretAI>().att[0]);
+				switchback.text = "press 's' to switch back";
 			}else if(type > 0){
 				StartCoroutine(Toast(selectedTurret.GetComponent<TurretAI>().Upgrade(type)));
 				if(toastText.text == ""){
@@ -115,7 +131,7 @@ public class GameController : MonoBehaviour {
 		if(erase){
 			foreach(TextMesh tm in userInterface) tm.text = "";
 			userInterface[0].transform.position = Vector3.one * 1000;
-			rangeAnimatorScript.Disable();
+			if(switchback.text.Length == 0) rangeAnimatorScript.Disable();
 		}
 	}
 
@@ -125,7 +141,7 @@ public class GameController : MonoBehaviour {
 			userInterface[0].transform.position = mp + new Vector3(0.5f, 0.15f, 0.5f);
 			userInterface[0].text = "Build Turret";
 			for(int i = 1; i < userInterface.Length; i++){
-				userInterface[i].text = turrets.Length >= i ? i + ": " + turrets[i-1].ToString().Substring(0, turrets[i-1].ToString().IndexOf("(")) : "";
+				userInterface[i].text = turrets.Length >= i ? i + ": " + turrets[i-1].ToString().Substring(0, turrets[i-1].ToString().IndexOf("("))  + "(" + cost[i-1] + ")" : "";
 			}
 			rangeAnimatorScript.Disable();
 			return;
@@ -143,6 +159,7 @@ public class GameController : MonoBehaviour {
 			userInterface[3].text = "3: rotation speed (" + ups[2] + ")";
 			userInterface[4].text = "4: fire rate (" + ups[3] + ")";
 			userInterface[5].text = "5: recycle";
+			userInterface[6].text = "6: switch to view";
 			/**range, damage, rotationSpeed, wait*/
 		}
 	}
