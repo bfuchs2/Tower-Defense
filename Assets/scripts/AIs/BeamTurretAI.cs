@@ -3,14 +3,14 @@ using System.Collections;
 
 public class BeamTurretAI : TurretAI {
 
-	public GameObject shot;
+	private BeamManager bm;
 	public float lifeSpan;
 	private float downTime;
 
 	override protected void fire(Vector3 dir){
 		if(shotTime > Time.time) return;
 		//this.animation.Play();
-		shot.SetActive(true);
+		bm.On();
 		att[2] /= 3; //rotationSpeed is increased back in the shouldAnimate(bool b) method
 		downTime = Time.time + lifeSpan;
 		shotTime = Time.time + att[3];
@@ -26,18 +26,19 @@ public class BeamTurretAI : TurretAI {
 	* returns true if the upgrade was successful and
 	* false if that aspect is maxed out */
 	override protected void CheckAttributes(){
-		shot.GetComponent<BeamManager>().damage = att[1];
+		bm.damage = att[1];
 	}
 
 	override protected void shouldAnimate(bool b){
-		if(downTime <= Time.time && shot.activeSelf){
-			shot.SetActive(false);
+		if(downTime <= Time.time && bm.IsFiring()){
+			bm.Off();
 			att[2] *= 3;
 		}
 	}
 	
 	override protected void init(){
-		shot = gun.GetChild(1).gameObject;
+		bm = gun.GetChild(1).GetComponent<BeamManager>();
+		bm.Off();
 }
 	
 }

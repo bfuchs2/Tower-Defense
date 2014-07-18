@@ -75,14 +75,16 @@ abstract public class TurretAI : MonoBehaviour {
 	}
 
 	public string Upgrade(int factor){// != used as XOR
-		if((att[factor-1] >= maxs[factor-1])  !=  (factor == 4)) return "Maxed out";
+		if((factor == 4) ? (att[factor-1] <= maxs[factor-1]) : (att[factor-1] >= maxs[factor-1])) return "Maxed out";
 		if(!gc.AddToResources(0-upgradeCosts[factor-1])) return "Insufficient Funds!";
 
 		upgradeCosts[factor-1] = (int) (upgradeCosts[factor-1] * 1.25f);
 		if(factor == 4){
 			att[factor-1] /= 1.25f;
+			if(att[factor-1] < maxs[factor-1]) att[factor-1] = maxs[factor-1];
 		}else{
 			att[factor-1] *= 1.25f;
+			if(att[factor-1] > maxs[factor-1]) att[factor-1] = maxs[factor-1];
 		}
 		CheckAttributes();
 		return "";

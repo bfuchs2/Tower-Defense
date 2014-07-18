@@ -96,7 +96,7 @@ public class GameController : MonoBehaviour {
 
 	public void EndGame(){
 		gameOver = true;
-		toastText.text = "Game Ogre!";
+		toastText.text = "GAME OVER";
 	}
 
 	private void UseMenu(){
@@ -160,7 +160,7 @@ public class GameController : MonoBehaviour {
 			userInterface[4].text = "4: fire rate (" + ups[3] + ")";
 			userInterface[5].text = "5: recycle";
 			userInterface[6].text = "6: switch to view";
-			/**range, damage, rotationSpeed, wait*/
+			/**range, damage, rotationSpeed, wait*///4bd3db
 		}
 	}
 
@@ -186,9 +186,14 @@ public class GameController : MonoBehaviour {
 	}
 
 	IEnumerator Toast(string s){
-		toastText.text = s;
-		yield return new WaitForSeconds(2f);
-		toastText.text = "";
+		if(s == ""){
+			yield return null;
+		}else{
+			while(toastText.text.Length > 0) yield return null;
+			toastText.text = s;
+			yield return new WaitForSeconds(2f);
+			toastText.text = "";
+		}
 	}
 	
 	int round(float f){
